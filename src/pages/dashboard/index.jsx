@@ -9,6 +9,10 @@ function Index() {
   const [products, setProducts] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
   const [creatingCampaign, setCreatingCampaign] = useState(false);
+  const [imageURL, setImageURL] = useState(null);
+  const [maxImageSize] = useState(70000); // Tamanho máximo em bytes (70KB)
+  const [currentImageSize, setCurrentImageSize] = useState(null);
+
   const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -16,6 +20,18 @@ function Index() {
     status: true,
     image: null,
   });
+
+  const clearFormFields = () => {
+    setFormData({
+      name: "",
+      price: "",
+      totalBilhetes: "",
+      status: true,
+      image: null,
+    });
+    setImageURL(null);
+    setCurrentImageSize(null);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,8 +76,15 @@ function Index() {
     }
 
     try {
-      const response = await api.put(`/updateproduct/${editingProduct._id}`, formDataToSend);
-      setProducts(products.map((product) => (product._id === editingProduct._id ? response.data : product)));
+      const response = await api.put(
+        `/updateproduct/${editingProduct._id}`,
+        formDataToSend
+      );
+      setProducts(
+        products.map((product) =>
+          product._id === editingProduct._id ? response.data : product
+        )
+      );
       setEditingProduct(null);
     } catch (error) {
       console.log(error.message);
@@ -71,19 +94,36 @@ function Index() {
   const createCampaign = async () => {
     const formDataToSend = new FormData();
     formDataToSend.append("name", formData.name);
-    formDataToSend.append("price", formData.price);
+    formDataToSend.append("price", parseFloat(formData.price).toFixed(2));
     formDataToSend.append("totalBilhetes", formData.totalBilhetes);
     formDataToSend.append("status", formData.status);
-    if (formData.image) {
-      formDataToSend.append("image", formData.image);
-    }
 
-    try {
-      const response = await api.post("/createproduct", formDataToSend);
-      setProducts([...products, response.data]);
-      setCreatingCampaign(false);
-    } catch (error) {
-      console.log(error.message);
+    if (formData.image) {
+      const reader = new FileReader();
+      if (formData.image.size > 70000) {
+        return;
+      }
+
+      reader.readAsDataURL(formData.image);
+      reader.onloadend = async () => {
+        const base64Image = reader.result;
+        formDataToSend.append("image", base64Image);
+        try {
+          const response = await api.post("/createproduct", formDataToSend);
+          setProducts([...products, response.data]);
+          setCreatingCampaign(false);
+        } catch (error) {
+          console.log(error.message);
+        }
+      };
+    } else {
+      try {
+        const response = await api.post("/createproduct", formDataToSend);
+        setProducts([...products, response.data]);
+        setCreatingCampaign(false);
+      } catch (error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -143,7 +183,8 @@ function Index() {
                     })}
                   </p>
                   <p>
-                    {item.BilhetesVendidos} de {item.totalBilhetes}
+                    {item.BilhetesVendidos} de{" "}
+                    {Number(item.TotalBilhetes).toLocaleString("pt-BR")}
                   </p>
                   <span>{item.status ? "Ativo" : "Finalizado"}</span>
                   <p>23-03-2023 16:03</p>
@@ -200,7 +241,9 @@ function Index() {
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">Total de Bilhetes</label>
+                <label className="block text-sm font-bold mb-2">
+                  Total de Bilhetes
+                </label>
                 <input
                   type="number"
                   value={formData.totalBilhetes}
@@ -217,19 +260,57 @@ function Index() {
                 <label className="block text-sm font-bold mb-2">Imagem</label>
                 <input
                   type="file"
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      image: e.target.files[0],
-                    })
-                  }
+                  accept=".jpg, .jpeg, .png, .jfif, image/jpeg, image/png, image/jfif"
+                  onChange={(e) => {
+                    const selectedFile = e.target.files[0];
+                    if (selectedFile) {
+                      const validTypes = ["image/jpeg", "image/png"];
+                      if (validTypes.includes(selectedFile.type)) {
+                        setFormData({
+                          ...formData,
+                          image: selectedFile,
+                        });
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setImageURL(reader.result);
+                        };
+                        setCurrentImageSize(selectedFile.size);
+                        reader.readAsDataURL(selectedFile);
+                      } else {
+                        // Aqui você pode mostrar uma mensagem de erro informando que apenas imagens JPEG e PNG são aceitas
+                      }
+                    } else {
+                      setCurrentImageSize(null);
+                    }
+                  }}
                   className="w-full p-2 border rounded"
                 />
+                {currentImageSize !== null && (
+                  <p
+                    className={`text-xs mt-2 ${
+                      currentImageSize > maxImageSize ? "text-red-500" : ""
+                    }`}
+                  >
+                    Tamanho atual:{" "}
+                    {Math.round(Number(currentImageSize) / 1024).toFixed(2)} KB
+                    / {Math.round(maxImageSize / 1024)} KB
+                  </p>
+                )}
+                {imageURL && (
+                  <img
+                    src={imageURL}
+                    alt="Preview"
+                    className="mt-4 w-full max-h-80 h-auto"
+                  />
+                )}
               </div>
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setEditingProduct(null)}
+                  onClick={() => {
+                    setEditingProduct(null);
+                    clearFormFields();
+                  }}
                   className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
                 >
                   Cancelar
@@ -282,7 +363,9 @@ function Index() {
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">Total de Bilhetes</label>
+                <label className="block text-sm font-bold mb-2">
+                  Total de Bilhetes
+                </label>
                 <input
                   type="number"
                   value={formData.totalBilhetes}
@@ -299,19 +382,58 @@ function Index() {
                 <label className="block text-sm font-bold mb-2">Imagem</label>
                 <input
                   type="file"
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      image: e.target.files[0],
-                    })
-                  }
+                  accept=".jpg, .jpeg, .png, .jfif, image/jpeg, image/png, image/jfif"
+                  onChange={(e) => {
+                    const selectedFile = e.target.files[0];
+                    if (selectedFile) {
+                      const validTypes = ["image/jpeg", "image/png"];
+                      if (validTypes.includes(selectedFile.type)) {
+                        setFormData({
+                          ...formData,
+                          image: selectedFile,
+                        });
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setImageURL(reader.result);
+                        };
+                        setCurrentImageSize(selectedFile.size);
+                        reader.readAsDataURL(selectedFile);
+                      } else {
+                        // Aqui você pode mostrar uma mensagem de erro informando que apenas imagens JPEG e PNG são aceitas
+                      }
+                    } else {
+                      setCurrentImageSize(null);
+                    }
+                  }}
                   className="w-full p-2 border rounded"
                 />
+                {currentImageSize !== null && (
+                  <p
+                    className={`text-xs mt-2 ${
+                      currentImageSize > maxImageSize ? "text-red-500" : ""
+                    }`}
+                  >
+                    Tamanho atual:{" "}
+                    {Math.round(Number(currentImageSize) / 1024).toFixed(2)} KB
+                    / {Math.round(maxImageSize / 1024)} KB
+                  </p>
+                )}
+
+                {imageURL && (
+                  <img
+                    src={imageURL}
+                    alt="Preview"
+                    className="mt-4 w-full max-h-80 h-auto"
+                  />
+                )}
               </div>
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setCreatingCampaign(false)}
+                  onClick={() => {
+                    setCreatingCampaign(null);
+                    clearFormFields();
+                  }}
                   className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
                 >
                   Cancelar
