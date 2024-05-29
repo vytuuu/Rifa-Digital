@@ -69,25 +69,49 @@ function Index() {
     const formDataToSend = new FormData();
     formDataToSend.append("name", formData.name);
     formDataToSend.append("price", formData.price);
-    formDataToSend.append("totalBilhetes", formData.totalBilhetes);
     formDataToSend.append("status", formData.status);
-    if (formData.image) {
-      formDataToSend.append("image", formData.image);
-    }
 
-    try {
-      const response = await api.put(
-        `/updateproduct/${editingProduct._id}`,
-        formDataToSend
-      );
-      setProducts(
-        products.map((product) =>
-          product._id === editingProduct._id ? response.data : product
-        )
-      );
-      setEditingProduct(null);
-    } catch (error) {
-      console.log(error.message);
+    if (formData.image) {
+      const reader = new FileReader();
+      if (formData.image.size > 70000) {
+        return;
+      }
+
+      reader.readAsDataURL(formData.image);
+      reader.onloadend = async () => {
+        const base64Image = reader.result;
+        formDataToSend.append("image", base64Image);
+        try {
+          const response = await api.put(
+            `/updateproduct/${editingProduct._id}`,
+            formDataToSend
+          );
+          setProducts(
+            products.map((product) =>
+              product._id === editingProduct._id ? response.data : product
+            )
+          );
+          clearFormFields();
+          setEditingProduct(null);
+        } catch (error) {
+          console.log(error.message);
+        }
+      };
+    } else {
+      try {
+        const response = await api.put(
+          `/updateproduct/${editingProduct._id}`,
+          formDataToSend
+        );
+        setProducts(
+          products.map((product) =>
+            product._id === editingProduct._id ? response.data : product
+          )
+        );
+        setEditingProduct(null);
+      } catch (error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -112,6 +136,7 @@ function Index() {
           const response = await api.post("/createproduct", formDataToSend);
           setProducts([...products, response.data]);
           setCreatingCampaign(false);
+          clearFormFields();
         } catch (error) {
           console.log(error.message);
         }
@@ -139,28 +164,36 @@ function Index() {
         <nav className="p-10">
           <ul className="flex flex-col gap-5">
             <li className="flex gap-3 items-center text-[20px] font-semibold uppercase">
-              <IoHomeSharp /> Dashboard
+              <IoHomeSharp className="text-green-200 hover:text-green-100 transition-all" />{" "}
+              <Link to={"/admin"}>
+                <p className="select-none cursor-pointer hover:text-zinc-400 transition-all">
+                  Dashboard
+                </p>
+              </Link>
             </li>
           </ul>
         </nav>
       </div>
-      <div className="w-3/4">
+      <div className="w-3/4"> 
         <header className="flex w-full justify-between items-center p-10 border-b-2">
           <h1 className="text-[30px] uppercase font-bold">Dashboard admin</h1>
-          <Crown size={40} />
+          <Crown
+            size={40}
+            className="cursor-pointer hover:text-yellow-600 transition-all"
+          />
         </header>
         <main className="p-10 text-black flex flex-col gap-3">
           <div className="flex gap-5 items-center justify-between">
             <h1 className="text-[30px] text-white">Minhas campanhas</h1>
             <button
-              className="text-md font-semibold uppercase bg-violet-800 px-5 py-3 rounded-md text-white transition-all hover:bg-violet-500"
+              className="select-none text-md font-semibold uppercase bg-violet-800 px-5 py-3 rounded-md text-white transition-all hover:bg-violet-500"
               onClick={() => setCreatingCampaign(true)}
             >
               Criar campanha
             </button>
           </div>
 
-          <div className="grid text-white grid-cols-6">
+          <div className="grid text-white grid-cols-6 select-none">
             <p>Campanha</p>
             <p>Valor</p>
             <p>Números vendidos</p>
@@ -177,23 +210,42 @@ function Index() {
                     <p className="text-xs">{item.name}</p>
                   </div>
                   <p>
-                    {item.price.toLocaleString("pt-BR", {
+                    {Number(item.price).toLocaleString("pt-BR", {
                       style: "currency",
                       currency: "BRL",
                     })}
                   </p>
                   <p>
                     {item.BilhetesVendidos} de{" "}
-                    {Number(item.TotalBilhetes).toLocaleString("pt-BR")}
+                    {Number(item.totalBilhetes).toLocaleString("pt-BR")}
                   </p>
-                  <span>{item.status ? "Ativo" : "Finalizado"}</span>
-                  <p>23-03-2023 16:03</p>
+                  <span
+                    className={`select-none w-14 h-5 sm:w-20 sm:h-5 lg:w-28 lg:h-6 flex text-white items-center justify-center rounded-md text-[8px] sm:text-sm ${
+                      item.status ? "bg-green-400" : "bg-red-400"
+                    }`}
+                  >
+                    {item.status ? "Ativo" : "Finalizado"}
+                  </span>
+                  <p>
+                    {item.createdAt
+                      ? new Date(item.createdAt).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        }) +
+                        " " +
+                        new Date(item.createdAt).toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "Date not found"}
+                  </p>
                   <div className="flex gap-5 items-center">
                     <button onClick={() => editProduct(item)}>
-                      <Pencil />
+                      <Pencil className="hover:text-yellow-400 transition-all" />
                     </button>
                     <button onClick={() => deleteProduct(item._id)}>
-                      <Trash />
+                      <Trash className="hover:text-red-400 transition-all" />
                     </button>
                   </div>
                 </div>
@@ -241,20 +293,20 @@ function Index() {
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">
-                  Total de Bilhetes
-                </label>
-                <input
-                  type="number"
-                  value={formData.totalBilhetes}
+                <label className="block text-sm font-bold mb-2">Status</label>
+                <select
+                  value={formData.status}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      totalBilhetes: parseInt(e.target.value),
+                      status: e.target.value === "true",
                     })
                   }
                   className="w-full p-2 border rounded"
-                />
+                >
+                  <option value="true">Ativo</option>
+                  <option value="false">Encerrado</option>
+                </select>
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-bold mb-2">Imagem</label>
@@ -288,7 +340,7 @@ function Index() {
                 {currentImageSize !== null && (
                   <p
                     className={`text-xs mt-2 ${
-                      currentImageSize > maxImageSize ? "text-red-500" : ""
+                      currentImageSize > maxImageSize ? "text-red-400" : ""
                     }`}
                   >
                     Tamanho atual:{" "}
@@ -311,13 +363,13 @@ function Index() {
                     setEditingProduct(null);
                     clearFormFields();
                   }}
-                  className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                  className="bg-red-400 text-white px-4 py-2 rounded mr-2 hover:bg-red-500 transition-all"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-500 text-white px-4 py-2 rounded"
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-all"
                 >
                   Salvar
                 </button>
@@ -410,7 +462,7 @@ function Index() {
                 {currentImageSize !== null && (
                   <p
                     className={`text-xs mt-2 ${
-                      currentImageSize > maxImageSize ? "text-red-500" : ""
+                      currentImageSize > maxImageSize ? "text-red-400" : ""
                     }`}
                   >
                     Tamanho atual:{" "}
@@ -434,13 +486,13 @@ function Index() {
                     setCreatingCampaign(null);
                     clearFormFields();
                   }}
-                  className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                  className="bg-red-400 text-white px-4 py-2 rounded mr-2 hover:bg-red-500 transition-all"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-500 text-white px-4 py-2 rounded"
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-all"
                 >
                   Salvar
                 </button>
