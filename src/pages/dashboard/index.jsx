@@ -12,6 +12,19 @@ function Index() {
   const [imageURL, setImageURL] = useState(null);
   const [maxImageSize] = useState(70000); // Tamanho máximo em bytes (70KB)
   const [currentImageSize, setCurrentImageSize] = useState(null);
+  
+  const [isImageOpen, setIsImageOpen] = useState(false);
+  const [clickedImage, setClickedImage] = useState(null);
+
+  const handleImageClick = (image) => {
+    setClickedImage(image);
+    setIsImageOpen(true);
+  };
+
+  const handleCloseClick = () => {
+    setIsImageOpen(false);
+    setClickedImage(null);
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -174,7 +187,7 @@ function Index() {
           </ul>
         </nav>
       </div>
-      <div className="w-3/4"> 
+      <div className="w-3/4">
         <header className="flex w-full justify-between items-center p-10 border-b-2">
           <h1 className="text-[30px] uppercase font-bold">Dashboard admin</h1>
           <Crown
@@ -206,9 +219,32 @@ function Index() {
               <section key={item._id}>
                 <div className="grid bg-zinc-300 grid-cols-6 items-center justify-center p-4 rounded-md ">
                   <div className="flex gap-2 items-center">
-                    <img src={item.image} className="w-10 rounded-sm" alt="" />
+                    <img
+                      src={item.image}
+                      className="w-10 rounded-sm cursor-pointer"
+                      alt={item.name}
+                      onClick={() => handleImageClick(item.image)}
+                    />
                     <p className="text-xs">{item.name}</p>
                   </div>
+
+                  {isImageOpen && clickedImage === item.image && (
+                    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                      <div className="relative bg-white p-4 rounded-md">
+                        <img
+                          src={clickedImage}
+                          className="max-w-full max-h-screen"
+                          alt={item.name}
+                        />
+                        <button
+                          className="absolute top-2 right-2 text-black text-2xl font-bold"
+                          onClick={handleCloseClick}
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <p>
                     {Number(item.price).toLocaleString("pt-BR", {
                       style: "currency",
@@ -238,7 +274,7 @@ function Index() {
                           hour: "2-digit",
                           minute: "2-digit",
                         })
-                      : "Date not found"}
+                      : "N/A"}
                   </p>
                   <div className="flex gap-5 items-center">
                     <button onClick={() => editProduct(item)}>
